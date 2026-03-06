@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/firebase/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { calcCPScore, getTotalSolved } from "@/lib/cp-score";
+import { fetchLeetCodeStats, fetchCodeforcesStats, fetchCodeChefStats } from "@/lib/cp-fetch";
 import type { LeetCodeStats, CodeforcesStats, CodeChefStats } from "@/types";
 
 type Platform = "leetcode" | "codeforces" | "codechef";
@@ -41,39 +42,36 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Username cannot be empty" }, { status: 400 });
   }
 
-  // Fetch fresh stats for this platform
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const statsRes = await fetch(
-    `${baseUrl}/api/cp/${platform}?username=${encodeURIComponent(trimmed)}`,
-    { cache: "no-store" }
-  );
-
-  if (!statsRes.ok) {
+  // Fetch fresh stats for this platform directly (no self-calling)
+  let newStats: LeetCodeStats | CodeforcesStats | CodeChefStats;
+  try {
+    if (platform === "leetcode") newStats = await fetchLeetCodeStats(trimmed);
+    else if (platform === "codeforces") newStats = await fetchCodeforcesStats(trimmed);
+    else newStats = await fetchCodeChefStats(trimmed);
+  } catch {
     return NextResponse.json(
       { error: `Could not fetch stats for "${trimmed}" on ${platform}. Check that the username is correct.` },
       { status: 422 }
     );
   }
 
-  const newStats = await statsRes.json();
-
   // We need the existing stats for the other two platforms to recalculate CP score
   const profileDoc = await adminDb.collection("profiles").doc(user.uid).get();
   const profileData = profileDoc.data();
 
   const lcStats: LeetCodeStats | null =
-    platform === "leetcode" ? newStats : (profileData?.leetcode_stats as LeetCodeStats | null) ?? null;
+    platform === "leetcode" ? (newStats as LeetCodeStats) : (profileData?.leetcode_stats as LeetCodeStats | null) ?? null;
   const cfStats: CodeforcesStats | null =
-    platform === "codeforces" ? newStats : (profileData?.codeforces_stats as CodeforcesStats | null) ?? null;
+    platform === "codeforces" ? (newStats as CodeforcesStats) : (profileData?.codeforces_stats as CodeforcesStats | null) ?? null;
   const ccStats: CodeChefStats | null =
-    platform === "codechef" ? newStats : (profileData?.codechef_stats as CodeChefStats | null) ?? null;
+    platform === "codechef" ? (newStats as CodeChefStats) : (profileData?.codechef_stats as CodeChefStats | null) ?? null;
 
   const scoreBreakdown = calcCPScore(lcStats, cfStats, ccStats);
   const totalSolved = getTotalSolved(lcStats, cfStats, ccStats);
 
   await adminDb.collection("profiles").doc(user.uid).update({
     [PLATFORM_FIELD[platform]]: trimmed,
-    [STATS_FIELD[platform]]: newStats as Record<string, unknown>,
+    [STATS_FIELD[platform]]: newStats as unknown as Record<string, unknown>,
     cp_score: scoreBreakdown.totalScore,
     total_solved: totalSolved,
     updated_at: new Date().toISOString(),

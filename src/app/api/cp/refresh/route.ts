@@ -3,11 +3,8 @@ import type { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/firebase/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { calcCPScore, getTotalSolved } from "@/lib/cp-score";
-import type {
-  LeetCodeStats,
-  CodeforcesStats,
-  CodeChefStats,
-} from "@/types";
+import { fetchLeetCodeStats, fetchCodeforcesStats, fetchCodeChefStats } from "@/lib/cp-fetch";
+import type { LeetCodeStats, CodeforcesStats, CodeChefStats } from "@/types";
 
 export async function POST(request: NextRequest) {
   const user = await getCurrentUser();
@@ -18,44 +15,18 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const { leetcode_username, codeforces_username, codechef_username } = body;
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const [lcResult, cfResult, ccResult] = await Promise.allSettled([
+    leetcode_username ? fetchLeetCodeStats(leetcode_username) : Promise.resolve(null),
+    codeforces_username ? fetchCodeforcesStats(codeforces_username) : Promise.resolve(null),
+    codechef_username ? fetchCodeChefStats(codechef_username) : Promise.resolve(null),
+  ]);
 
-  const fetches: Promise<Response>[] = [];
-  if (leetcode_username) {
-    fetches.push(fetch(`${baseUrl}/api/cp/leetcode?username=${leetcode_username}`));
-  }
-  if (codeforces_username) {
-    fetches.push(fetch(`${baseUrl}/api/cp/codeforces?username=${codeforces_username}`));
-  }
-  if (codechef_username) {
-    fetches.push(fetch(`${baseUrl}/api/cp/codechef?username=${codechef_username}`));
-  }
-
-  const results = await Promise.allSettled(fetches);
-
-  let lcStats: LeetCodeStats | null = null;
-  let cfStats: CodeforcesStats | null = null;
-  let ccStats: CodeChefStats | null = null;
-
-  let idx = 0;
-  if (leetcode_username) {
-    const res = results[idx++];
-    if (res.status === "fulfilled" && res.value.ok) {
-      lcStats = await res.value.json();
-    }
-  }
-  if (codeforces_username) {
-    const res = results[idx++];
-    if (res.status === "fulfilled" && res.value.ok) {
-      cfStats = await res.value.json();
-    }
-  }
-  if (codechef_username) {
-    const res = results[idx++];
-    if (res.status === "fulfilled" && res.value.ok) {
-      ccStats = await res.value.json();
-    }
-  }
+  const lcStats: LeetCodeStats | null =
+    lcResult.status === "fulfilled" ? lcResult.value : null;
+  const cfStats: CodeforcesStats | null =
+    cfResult.status === "fulfilled" ? cfResult.value : null;
+  const ccStats: CodeChefStats | null =
+    ccResult.status === "fulfilled" ? ccResult.value : null;
 
   const scoreBreakdown = calcCPScore(lcStats, cfStats, ccStats);
   const totalSolved = getTotalSolved(lcStats, cfStats, ccStats);
