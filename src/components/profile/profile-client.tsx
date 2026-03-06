@@ -238,7 +238,7 @@ export default function ProfileClient({
               </div>
 
               {/* Actions */}
-              <div className="flex flex-col gap-2 shrink-0">
+              <div className="flex flex-row sm:flex-col gap-2 shrink-0 flex-wrap justify-center sm:justify-start">
                 {isOwnProfile ? (
                   <Button asChild variant="outline" size="sm">
                     <Link href="/setup">

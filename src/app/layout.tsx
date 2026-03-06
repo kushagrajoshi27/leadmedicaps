@@ -19,7 +19,9 @@ export const metadata: Metadata = {
   description:
     "Track competitive programming performance across LeetCode, Codeforces, and CodeChef for Medicaps University students.",
   icons: {
-    icon: "/favicon.ico",
+    icon: "/favicon.svg",
+    apple: "/favicon.svg",
+    shortcut: "/favicon.svg",
   },
 };
 

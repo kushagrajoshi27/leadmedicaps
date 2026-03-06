@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Code2, Mail, Lock, User, AlertCircle, CheckCircle } from "lucide-react";
@@ -9,11 +8,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
-import { createClient } from "@/lib/supabase/client";
+import {
+  createUserWithEmailAndPassword,
+  sendEmailVerification,
+  updateProfile,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
+import { auth } from "@/lib/firebase/client";
 import { toast } from "sonner";
 
 export default function SignUpPage() {
-  const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,6 +30,8 @@ export default function SignUpPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   const ALLOWED_DOMAIN = "medicaps.ac.in";
 
@@ -38,6 +47,19 @@ export default function SignUpPage() {
   const strength = passwordStrength(password);
   const strengthLabels = ["", "Weak", "Fair", "Good", "Strong"];
   const strengthColors = ["", "bg-red-500", "bg-yellow-500", "bg-blue-500", "bg-green-500"];
+
+  /** Exchange a Firebase ID token for an httpOnly session cookie */
+  async function createSession(idToken: string) {
+    const res = await fetch("/api/auth/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error ?? "Session creation failed");
+    }
+  }
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,47 +80,83 @@ export default function SignUpPage() {
 
     setLoading(true);
 
-    const supabase = createClient();
-    const { error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: name },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-
-    if (authError) {
-      setError(authError.message);
+    try {
+      const credential = await createUserWithEmailAndPassword(auth, email, password);
+      // Set display name and send verification email
+      await updateProfile(credential.user, { displayName: name });
+      await sendEmailVerification(credential.user);
+      // Sign out locally — they must verify email before getting a session
+      await signOut(auth);
+      setSuccess(true);
+      toast.success("Check your email for a confirmation link!");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Sign up failed";
+      if (msg.includes("auth/email-already-in-use")) {
+        setError("An account with this email already exists. Please sign in instead.");
+      } else if (msg.includes("auth/weak-password")) {
+        setError("Password is too weak");
+      } else {
+        setError(msg);
+      }
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setSuccess(true);
-    toast.success("Check your email for a confirmation link!");
   };
 
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
-    const supabase = createClient();
+    setError("");
 
-    const { error: authError } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        queryParams: {
-          hd: ALLOWED_DOMAIN,
-        },
-      },
-    });
-
-    if (authError) {
-      toast.error(authError.message);
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ hd: ALLOWED_DOMAIN });
+      const credential = await signInWithPopup(auth, provider);
+      const idToken = await credential.user.getIdToken();
+      await createSession(idToken);
+      toast.success("Signed in with Google!");
+      window.location.href = "/dashboard";
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Google sign-in failed";
+      if (msg.includes("Only @medicaps.ac.in")) {
+        toast.error("Only @medicaps.ac.in Google accounts are allowed");
+      } else if (!msg.includes("popup-closed-by-user") && !msg.includes("cancelled-popup-request")) {
+        toast.error(msg);
+      }
+    } finally {
       setGoogleLoading(false);
     }
   };
 
   if (success) {
+    const handleResend = async () => {
+      if (resendCooldown > 0 || !password) return;
+      setResendLoading(true);
+      try {
+        // Sign in temporarily just to get the user object, then send verification
+        const credential = await signInWithEmailAndPassword(auth, email, password);
+        if (credential.user.emailVerified) {
+          toast.success("Email already verified! You can sign in now.");
+          await signOut(auth);
+          return;
+        }
+        await sendEmailVerification(credential.user);
+        await signOut(auth);
+        toast.success("Verification email resent! Check your inbox (and spam).");
+        // 60-second cooldown
+        setResendCooldown(60);
+        const interval = setInterval(() => {
+          setResendCooldown((c) => {
+            if (c <= 1) { clearInterval(interval); return 0; }
+            return c - 1;
+          });
+        }, 1000);
+      } catch {
+        toast.error("Couldn't resend — please try signing in instead.");
+      } finally {
+        setResendLoading(false);
+      }
+    };
+
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <motion.div
@@ -110,16 +168,38 @@ export default function SignUpPage() {
             <CheckCircle className="h-8 w-8 text-green-400" />
           </div>
           <h2 className="text-2xl font-bold mb-2">Check your email</h2>
-          <p className="text-muted-foreground mb-6">
+          <p className="text-muted-foreground mb-4">
             We sent a confirmation link to{" "}
             <span className="text-foreground font-medium">{email}</span>. Click
             it to activate your account.
           </p>
-          <Link href="/login">
-            <Button variant="outline" className="w-full">
-              Back to Sign In
+          <div className="flex items-start gap-2 rounded-lg border border-yellow-500/40 bg-yellow-500/10 px-4 py-3 mb-6 text-left">
+            <span className="text-yellow-400 text-lg leading-tight">⚠</span>
+            <p className="text-sm text-yellow-300 font-medium leading-snug">
+              Can&apos;t find the email?{" "}
+              <span className="underline underline-offset-2">Check your spam or junk folder.</span>{" "}
+              Verification emails from Firebase often get filtered there.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3">
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handleResend}
+              disabled={resendLoading || resendCooldown > 0 || !password}
+            >
+              {resendLoading
+                ? "Sending…"
+                : resendCooldown > 0
+                ? `Resend in ${resendCooldown}s`
+                : "Resend verification email"}
             </Button>
-          </Link>
+            <Link href="/login">
+              <Button variant="ghost" className="w-full">
+                Back to Sign In
+              </Button>
+            </Link>
+          </div>
         </motion.div>
       </div>
     );
@@ -149,7 +229,7 @@ export default function SignUpPage() {
         animate={{ opacity: 1, y: 0 }}
         className="relative w-full max-w-md"
       >
-        <div className="rounded-2xl border border-border/60 glass p-8 shadow-2xl shadow-black/10">
+        <div className="rounded-2xl border border-border/60 glass p-6 sm:p-8 shadow-2xl shadow-black/10">
           <div className="text-center mb-8">
             <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-500/25">
               <Code2 className="h-7 w-7 text-white" />
@@ -189,10 +269,20 @@ export default function SignUpPage() {
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
-              className="flex items-center gap-2 text-destructive text-sm bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2.5 mb-5"
+              className="flex items-start gap-2 text-destructive text-sm bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2.5 mb-5"
             >
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              {error}
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>
+                {error}
+                {error.includes("already exists") && (
+                  <>
+                    {" "}
+                    <Link href="/login" className="underline underline-offset-2 font-medium">
+                      Go to Sign In →
+                    </Link>
+                  </>
+                )}
+              </span>
             </motion.div>
           )}
 

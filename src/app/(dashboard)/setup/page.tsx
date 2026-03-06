@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
@@ -11,6 +11,8 @@ import {
   ChevronLeft,
   Check,
   Loader2,
+  ChevronsUpDown,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,10 +24,82 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createClient } from "@/lib/supabase/client";
+import { doc, updateDoc } from "firebase/firestore";
+import { db, auth } from "@/lib/firebase/client";
 import { toast } from "sonner";
 
 const BATCH_YEARS = Array.from({ length: 12 }, (_, i) => 2018 + i);
+
+const BRANCHES = [
+  "B.A LLB (Hons)",
+  "B.B.A LLB (Hons)",
+  "B.Com (Hons)",
+  "B.Com (Hons.) Global Finance with ACCA",
+  "B.Sc Hons in Agriculture",
+  "B.Sc Hons in Forensic Science",
+  "B.Sc in Biotechnology",
+  "B.Sc in Forensic Science",
+  "B.Tech - Automobile Engineering (Electric Vehicle)",
+  "B.Tech - Computer Science and Engineering",
+  "B.Tech - M.Tech Computer Science & Engineering",
+  "B.Tech - Robotics and Automation Engineering",
+  "B.Tech AU/EV - Automobile Engineering (Electric Vehicle)",
+  "B.Tech CE - Civil Engineering",
+  "B.Tech CSE - Advanced Artificial Intelligence",
+  "B.Tech CSE - Artificial Intelligence",
+  "B.Tech CSE - Artificial Intelligence & Analytics",
+  "B.Tech CSE - Artificial Intelligence and Machine Learning",
+  "B.Tech CSE - Cyber Security",
+  "B.Tech CSE - Data Science",
+  "B.Tech CSE - Internet of Things",
+  "B.Tech CSE - Networks",
+  "B.Tech CSBS - Computer Science and Business Systems",
+  "B.Tech ECE - Electronics & Communication Engineering",
+  "B.Tech EE - Electrical Engineering",
+  "B.Tech IT - Information Technology",
+  "B.Tech Mechanical Engineering",
+  "B.Tech RA - Robotics and Automation",
+  "BBA LLB (Hons)",
+  "BBA in Business Analytics",
+  "BBA in Digital Marketing",
+  "BBA in Finance",
+  "BBA in Foreign Trade",
+  "BBA in Human Resource",
+  "BBA in Marketing Management",
+  "Bachelor of Computer Applications",
+  "Bachelor of Laws (Honours)",
+  "Bachelor of Pharmacy",
+  "M.A English",
+  "M.Sc Agriculture (Agronomy)",
+  "M.Sc Chemistry",
+  "M.Sc Forensic Science",
+  "M.Sc Mathematics",
+  "M.Sc Physics",
+  "M.Tech Civil Engineering",
+  "M.Tech Electrical Engineering",
+  "M.Tech Electronics and Communication",
+  "M.Tech in Computer Science and Engineering",
+  "M.Tech Mechanical Engineering",
+  "M.Tech Nanotechnology",
+  "MBA in Business Analytics",
+  "MBA in Finance",
+  "MBA in Foreign Trade",
+  "MBA in Human Resource",
+  "MBA in Logistic and Supply Chain Management",
+  "MBA in Marketing Management",
+  "Master of Computer Applications",
+  "Master of Pharmacy",
+  "Ph.D in Agriculture",
+  "Ph.D in Arts, Humanities & Social Science",
+  "Ph.D in Chemistry",
+  "Ph.D in Commerce",
+  "Ph.D in Computer Applications",
+  "Ph.D in Computer Science",
+  "Ph.D in Engineering",
+  "Ph.D in Management",
+  "Ph.D in Mathematics",
+  "Ph.D in Pharmacy",
+];
 
 const steps = [
   {
@@ -57,11 +131,30 @@ export default function SetupProfilePage() {
     name: "",
     username: "",
     batch: "",
+    branch: "",
     linkedin_url: "",
     leetcode_username: "",
     codeforces_username: "",
     codechef_username: "",
   });
+
+  const [branchOpen, setBranchOpen] = useState(false);
+  const [branchSearch, setBranchSearch] = useState("");
+  const branchRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (branchRef.current && !branchRef.current.contains(e.target as Node)) {
+        setBranchOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredBranches = BRANCHES.filter((b) =>
+    b.toLowerCase().includes(branchSearch.toLowerCase())
+  );
 
   const updateForm = (key: string, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -76,6 +169,7 @@ export default function SetupProfilePage() {
         return;
       }
       if (!form.batch) { toast.error("Please select your batch year"); return; }
+      if (!form.branch) { toast.error("Please select your branch"); return; }
     }
     if (step < 2) setStep((s) => s + 1);
     else handleSubmit();
@@ -83,28 +177,30 @@ export default function SetupProfilePage() {
 
   const handleSubmit = async () => {
     setLoading(true);
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
 
+    const user = auth.currentUser;
     if (!user) { router.push("/login"); return; }
 
-    // Save basic profile info
-    const { error } = await supabase.from("profiles").update({
-      name: form.name,
-      username: form.username,
-      batch: parseInt(form.batch),
-      linkedin_url: form.linkedin_url || null,
-      leetcode_username: form.leetcode_username || null,
-      codeforces_username: form.codeforces_username || null,
-      codechef_username: form.codechef_username || null,
-      setup_complete: true,
-    }).eq("id", user.id);
-
-    if (error) {
-      if (error.message.includes("username")) {
+    try {
+      const profileRef = doc(db, "profiles", user.uid);
+      await updateDoc(profileRef, {
+        name: form.name,
+        username: form.username,
+        batch: parseInt(form.batch),
+        branch: form.branch,
+        linkedin_url: form.linkedin_url || null,
+        leetcode_username: form.leetcode_username || null,
+        codeforces_username: form.codeforces_username || null,
+        codechef_username: form.codechef_username || null,
+        setup_complete: true,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to save profile";
+      if (msg.includes("already") || msg.includes("username")) {
         toast.error("Username is already taken. Choose another.");
       } else {
-        toast.error(error.message);
+        toast.error(msg);
       }
       setLoading(false);
       return;
@@ -186,7 +282,7 @@ export default function SetupProfilePage() {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
           transition={{ duration: 0.3 }}
-          className="glass border border-border/60 rounded-2xl p-8 shadow-2xl"
+          className="glass border border-border/60 rounded-2xl p-6 sm:p-8 shadow-2xl"
         >
           {/* Step 3 - Success */}
           {step === 3 ? (
@@ -231,7 +327,7 @@ export default function SetupProfilePage() {
                   <div className="space-y-2">
                     <Label>Full Name *</Label>
                     <Input
-                      placeholder="Anuj Billore"
+                      placeholder="John Doe"
                       value={form.name}
                       onChange={(e) => updateForm("name", e.target.value)}
                     />
@@ -244,7 +340,7 @@ export default function SetupProfilePage() {
                         @
                       </span>
                       <Input
-                        placeholder="anujbillore"
+                        placeholder="johndoe"
                         value={form.username}
                         onChange={(e) =>
                           updateForm("username", e.target.value.toLowerCase())
@@ -276,6 +372,63 @@ export default function SetupProfilePage() {
                     </Select>
                   </div>
 
+                  <div className="space-y-2 relative" ref={branchRef}>
+                    <Label>Branch *</Label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBranchOpen((o) => !o);
+                        setBranchSearch("");
+                      }}
+                      className="flex w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 h-10"
+                    >
+                      <span className={form.branch ? "text-foreground" : "text-muted-foreground"}>
+                        {form.branch || "Select your branch"}
+                      </span>
+                      <ChevronsUpDown className="h-4 w-4 text-muted-foreground shrink-0 ml-2" />
+                    </button>
+                    {branchOpen && (
+                      <div className="absolute z-50 w-full rounded-md border border-border bg-popover shadow-lg">
+                        <div className="flex items-center border-b border-border px-3 py-2 gap-2">
+                          <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <input
+                            autoFocus
+                            placeholder="Search branch..."
+                            value={branchSearch}
+                            onChange={(e) => setBranchSearch(e.target.value)}
+                            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                          />
+                        </div>
+                        <div className="max-h-48 overflow-y-auto py-1">
+                          {filteredBranches.length === 0 ? (
+                            <p className="py-2 px-3 text-sm text-muted-foreground">
+                              No branches found.
+                            </p>
+                          ) : (
+                            filteredBranches.map((branch) => (
+                              <button
+                                key={branch}
+                                type="button"
+                                onClick={() => {
+                                  updateForm("branch", branch);
+                                  setBranchOpen(false);
+                                  setBranchSearch("");
+                                }}
+                                className={`w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors ${
+                                  form.branch === branch
+                                    ? "bg-accent/70 font-medium"
+                                    : ""
+                                }`}
+                              >
+                                {branch}
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <div className="space-y-2">
                     <Label>LinkedIn Profile (Optional)</Label>
                     <div className="relative">
@@ -304,7 +457,7 @@ export default function SetupProfilePage() {
                       LeetCode Username
                     </Label>
                     <Input
-                      placeholder="e.g. anuj_billore"
+                      placeholder="e.g. john_doe"
                       value={form.leetcode_username}
                       onChange={(e) => updateForm("leetcode_username", e.target.value)}
                     />
@@ -328,7 +481,7 @@ export default function SetupProfilePage() {
                       CodeChef Username
                     </Label>
                     <Input
-                      placeholder="e.g. anuj_chef"
+                      placeholder="e.g. john_chef"
                       value={form.codechef_username}
                       onChange={(e) => updateForm("codechef_username", e.target.value)}
                     />

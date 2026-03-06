@@ -113,14 +113,14 @@ export function DashboardClient({ profile }: DashboardClientProps) {
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="flex items-center gap-4"
+          className="flex items-center gap-3"
         >
-          <Avatar className="h-14 w-14 ring-2 ring-primary/20">
+          <Avatar className="h-12 w-12 sm:h-14 sm:w-14 ring-2 ring-primary/20 shrink-0">
             <AvatarImage src={profile.avatar_url ?? ""} />
             <AvatarFallback className="text-lg">{initials}</AvatarFallback>
           </Avatar>
-          <div>
-            <h1 className="text-2xl font-bold">{profile.name}</h1>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold truncate">{profile.name}</h1>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className="text-sm text-muted-foreground">
                 @{profile.username}
@@ -298,11 +298,11 @@ export function DashboardClient({ profile }: DashboardClientProps) {
         transition={{ delay: 0.3 }}
       >
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="leetcode">LeetCode</TabsTrigger>
-            <TabsTrigger value="codeforces">Codeforces</TabsTrigger>
-            <TabsTrigger value="codechef">CodeChef</TabsTrigger>
+          <TabsList className="w-full grid grid-cols-4">
+            <TabsTrigger value="overview" className="text-xs sm:text-sm">Overview</TabsTrigger>
+            <TabsTrigger value="leetcode" className="text-xs sm:text-sm">LeetCode</TabsTrigger>
+            <TabsTrigger value="codeforces" className="text-xs sm:text-sm">Codeforces</TabsTrigger>
+            <TabsTrigger value="codechef" className="text-xs sm:text-sm">CodeChef</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">

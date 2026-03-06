@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/firebase/server";
+import { adminDb } from "@/lib/firebase/admin";
 import { calcCPScore, getTotalSolved } from "@/lib/cp-score";
 import type { LeetCodeStats, CodeforcesStats, CodeChefStats } from "@/types";
 
@@ -23,11 +24,7 @@ const STATS_FIELD: Record<Platform, string> = {
  * Updates the user's platform username, fetches fresh stats, and saves to DB.
  */
 export async function PATCH(request: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -61,11 +58,8 @@ export async function PATCH(request: NextRequest) {
   const newStats = await statsRes.json();
 
   // We need the existing stats for the other two platforms to recalculate CP score
-  const { data: profileData } = await supabase
-    .from("profiles")
-    .select("leetcode_stats, codeforces_stats, codechef_stats, leetcode_username, codeforces_username, codechef_username")
-    .eq("id", user.id)
-    .single();
+  const profileDoc = await adminDb.collection("profiles").doc(user.uid).get();
+  const profileData = profileDoc.data();
 
   const lcStats: LeetCodeStats | null =
     platform === "leetcode" ? newStats : (profileData?.leetcode_stats as LeetCodeStats | null) ?? null;
@@ -77,20 +71,13 @@ export async function PATCH(request: NextRequest) {
   const scoreBreakdown = calcCPScore(lcStats, cfStats, ccStats);
   const totalSolved = getTotalSolved(lcStats, cfStats, ccStats);
 
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      [PLATFORM_FIELD[platform]]: trimmed,
-      [STATS_FIELD[platform]]: newStats as unknown as Record<string, unknown>,
-      cp_score: scoreBreakdown.totalScore,
-      total_solved: totalSolved,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", user.id);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  await adminDb.collection("profiles").doc(user.uid).update({
+    [PLATFORM_FIELD[platform]]: trimmed,
+    [STATS_FIELD[platform]]: newStats as Record<string, unknown>,
+    cp_score: scoreBreakdown.totalScore,
+    total_solved: totalSolved,
+    updated_at: new Date().toISOString(),
+  });
 
   return NextResponse.json({
     platform,

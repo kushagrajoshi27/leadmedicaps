@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/firebase/server";
+import { adminDb } from "@/lib/firebase/admin";
 import { calcCPScore, getTotalSolved } from "@/lib/cp-score";
 import type {
   LeetCodeStats,
@@ -9,9 +10,7 @@ import type {
 } from "@/types";
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
+  const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -19,7 +18,6 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const { leetcode_username, codeforces_username, codechef_username } = body;
 
-  // Parallel fetch all platforms
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
   const fetches: Promise<Response>[] = [];
@@ -34,7 +32,7 @@ export async function POST(request: NextRequest) {
   }
 
   const results = await Promise.allSettled(fetches);
-  
+
   let lcStats: LeetCodeStats | null = null;
   let cfStats: CodeforcesStats | null = null;
   let ccStats: CodeChefStats | null = null;
@@ -62,22 +60,15 @@ export async function POST(request: NextRequest) {
   const scoreBreakdown = calcCPScore(lcStats, cfStats, ccStats);
   const totalSolved = getTotalSolved(lcStats, cfStats, ccStats);
 
-  // Update profile in DB
-  const { error } = await supabase
-    .from("profiles")
-    .update({
-      leetcode_stats: lcStats as unknown as Record<string, unknown>,
-      codeforces_stats: cfStats as unknown as Record<string, unknown>,
-      codechef_stats: ccStats as unknown as Record<string, unknown>,
-      cp_score: scoreBreakdown.totalScore,
-      total_solved: totalSolved,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", user.id);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  // Update profile in Firestore
+  await adminDb.collection("profiles").doc(user.uid).update({
+    leetcode_stats: lcStats,
+    codeforces_stats: cfStats,
+    codechef_stats: ccStats,
+    cp_score: scoreBreakdown.totalScore,
+    total_solved: totalSolved,
+    updated_at: new Date().toISOString(),
+  });
 
   return NextResponse.json({
     success: true,

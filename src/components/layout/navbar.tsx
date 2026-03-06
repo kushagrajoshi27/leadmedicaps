@@ -25,7 +25,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { createClient } from "@/lib/supabase/client";
+import { signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase/client";
 import { cn } from "@/lib/utils";
 import type { UserProfile } from "@/types";
 import { motion, AnimatePresence } from "framer-motion";
@@ -47,8 +48,8 @@ export function Navbar({ user }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleSignOut = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    await signOut(auth);
+    await fetch("/api/auth/session", { method: "DELETE" });
     router.push("/");
     router.refresh();
   };

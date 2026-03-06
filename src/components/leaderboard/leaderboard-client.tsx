@@ -233,11 +233,11 @@ export function LeaderboardClient({
             {/* Column Headers */}
             <div className="grid grid-cols-12 gap-2 px-4 py-2.5 text-xs text-muted-foreground font-medium bg-muted/30">
               <div className="col-span-1 text-center">#</div>
-              <div className="col-span-4">Student</div>
+              <div className="col-span-6 sm:col-span-4">Student</div>
               <div className="col-span-2 text-center hidden sm:block">Batch</div>
-              <div className="col-span-2 text-center">CP Score</div>
+              <div className="col-span-3 sm:col-span-2 text-center">CP Score</div>
               <div className="col-span-2 text-center hidden md:block">Solved</div>
-              <div className="col-span-1 text-center">Links</div>
+              <div className="col-span-2 sm:col-span-1 text-center">Links</div>
             </div>
 
             {filtered.length === 0 ? (
@@ -277,7 +277,7 @@ export function LeaderboardClient({
                     </div>
 
                     {/* Name */}
-                    <div className="col-span-4">
+                    <div className="col-span-6 sm:col-span-4">
                       <Link
                         href={`/profile/${entry.username}`}
                         className="flex items-center gap-2 group"
@@ -308,7 +308,7 @@ export function LeaderboardClient({
                     </div>
 
                     {/* CP Score */}
-                    <div className="col-span-2 text-center">
+                    <div className="col-span-3 sm:col-span-2 text-center">
                       <p className="font-bold text-sm gradient-text">
                         {entry.cp_score.toFixed(1)}
                       </p>
@@ -320,7 +320,7 @@ export function LeaderboardClient({
                     </div>
 
                     {/* Links */}
-                    <div className="col-span-1 flex gap-1 justify-center">
+                    <div className="col-span-2 sm:col-span-1 flex gap-1 justify-center">
                       {entry.leetcode_username && (
                         <a
                           href={`https://leetcode.com/${entry.leetcode_username}`}

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Code2, Mail, Lock, AlertCircle } from "lucide-react";
@@ -9,11 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
-import { createClient } from "@/lib/supabase/client";
+import {
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+} from "firebase/auth";
+import { auth } from "@/lib/firebase/client";
 import { toast } from "sonner";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
@@ -30,6 +33,19 @@ export default function LoginPage() {
     return "";
   };
 
+  /** Exchange a Firebase ID token for an httpOnly session cookie */
+  async function createSession(idToken: string) {
+    const res = await fetch("/api/auth/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken }),
+    });
+    if (!res.ok) {
+      const { error } = await res.json();
+      throw new Error(error ?? "Session creation failed");
+    }
+  }
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const emailErr = validateEmail(email);
@@ -41,39 +57,48 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    const supabase = createClient();
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (authError) {
-      setError(authError.message);
+    try {
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      const idToken = await credential.user.getIdToken();
+      await createSession(idToken);
+      toast.success("Welcome back!");
+      window.location.href = "/dashboard";
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Invalid email or password";
+      if (msg.includes("auth/invalid-credential") || msg.includes("auth/wrong-password")) {
+        setError("Invalid email or password");
+      } else if (msg.includes("auth/user-not-found")) {
+        setError("No account found with this email");
+      } else if (msg.includes("auth/too-many-requests")) {
+        setError("Too many attempts. Try again later.");
+      } else {
+        setError(msg);
+      }
+    } finally {
       setLoading(false);
-      return;
     }
-
-    toast.success("Welcome back!");
-    router.push("/dashboard");
-    router.refresh();
   };
 
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
-    const supabase = createClient();
+    setError("");
 
-    const { error: authError } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        queryParams: {
-          hd: ALLOWED_DOMAIN, // Google Workspace domain hint
-        },
-      },
-    });
-
-    if (authError) {
-      toast.error(authError.message);
+    try {
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ hd: ALLOWED_DOMAIN });
+      const credential = await signInWithPopup(auth, provider);
+      const idToken = await credential.user.getIdToken();
+      await createSession(idToken);
+      toast.success("Welcome back!");
+      window.location.href = "/dashboard";
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Google sign-in failed";
+      if (msg.includes("Only @medicaps.ac.in")) {
+        toast.error("Only @medicaps.ac.in Google accounts are allowed");
+      } else if (!msg.includes("popup-closed-by-user") && !msg.includes("cancelled-popup-request")) {
+        toast.error(msg);
+      }
+    } finally {
       setGoogleLoading(false);
     }
   };
@@ -104,7 +129,7 @@ export default function LoginPage() {
         animate={{ opacity: 1, y: 0 }}
         className="relative w-full max-w-md"
       >
-        <div className="rounded-2xl border border-border/60 glass p-8 shadow-2xl shadow-black/10">
+        <div className="rounded-2xl border border-border/60 glass p-6 sm:p-8 shadow-2xl shadow-black/10">
           {/* Header */}
           <div className="text-center mb-8">
             <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-500/25">

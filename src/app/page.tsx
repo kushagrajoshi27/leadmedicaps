@@ -79,23 +79,23 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background overflow-hidden">
       {/* Header */}
-      <header className="fixed top-0 w-full z-50 glass border-b border-border/40">
+      <header className="fixed top-0 w-full z-50 glass border-b border-border/40 overflow-visible">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg">
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shrink-0">
               <Code2 className="h-4 w-4 text-white" />
             </div>
-            <span className="font-bold text-lg gradient-text">LeadMedicaps</span>
+            <span className="font-bold text-lg gradient-text hidden sm:block">LeadMedicaps</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <ThemeToggle />
-            <Link href="/login">
+            <Link href="/login" className="hidden sm:block">
               <Button variant="ghost" size="sm">
                 Sign In
               </Button>
             </Link>
             <Link href="/signup">
-              <Button size="sm" variant="gradient">
+              <Button size="sm" variant="gradient" className="whitespace-nowrap">
                 Get Started
               </Button>
             </Link>
@@ -128,7 +128,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight mb-6"
+            className="text-4xl sm:text-5xl md:text-7xl font-bold tracking-tight mb-6"
           >
             <span className="gradient-text">Level Up</span> Your
             <br />
@@ -139,7 +139,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed"
+            className="text-base sm:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed"
           >
             Track your competitive programming performance across LeetCode,
             Codeforces, and CodeChef. Compete with fellow Medicaps students on
@@ -260,7 +260,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="rounded-2xl border border-border/50 glass p-8 space-y-6"
+            className="rounded-2xl border border-border/50 glass p-4 sm:p-8 space-y-6"
           >
             {/* LeetCode */}
             <div className="space-y-2">
@@ -269,20 +269,19 @@ export default function LandingPage() {
                 <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground">LeetCode</span>
                 <span className="ml-auto text-xs text-muted-foreground bg-muted/60 rounded-full px-2 py-0.5">weight 30%</span>
               </div>
-              <div className="bg-[#ffa116]/5 border border-[#ffa116]/20 rounded-xl px-5 py-4 flex items-center gap-3">
-                <span className="font-semibold text-[#ffa116] text-sm font-mono italic">lc</span>
-                <span className="text-muted-foreground text-lg">=</span>
-                <div className="flex flex-col items-center text-sm font-mono leading-none">
-                  <span className="text-foreground">clamp</span>
+              <div className="overflow-x-auto">
+                <div className="bg-[#ffa116]/5 border border-[#ffa116]/20 rounded-xl px-4 py-4 flex items-center gap-2 min-w-max sm:min-w-0">
+                  <span className="font-semibold text-[#ffa116] text-sm font-mono italic">lc</span>
+                  <span className="text-muted-foreground text-lg">=</span>
+                  <span className="text-foreground font-mono text-sm">clamp(0,</span>
+                  <div className="flex flex-col items-center mx-1 gap-0.5">
+                    <span className="text-foreground font-mono text-sm px-2 pb-0.5">contestRating − 1200</span>
+                    <span className="block w-full h-[1.5px] bg-foreground/70 rounded-full" />
+                    <span className="text-foreground font-mono text-sm px-2 pt-0.5">10</span>
+                  </div>
+                  <span className="text-foreground font-mono text-sm">, 100)</span>
+                  <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap hidden sm:block pl-3">1200 → 0 · 2200 → 100</span>
                 </div>
-                <span className="text-muted-foreground text-base">(</span>
-                <span className="text-foreground font-mono text-sm">0,</span>
-                <div className="flex flex-col items-center mx-1">
-                  <span className="text-foreground font-mono text-sm border-b border-foreground/50 pb-0.5 px-1">contestRating − 1200</span>
-                  <span className="text-foreground font-mono text-sm pt-0.5 px-1">10</span>
-                </div>
-                <span className="text-muted-foreground text-base">, 100)</span>
-                <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap hidden sm:block">1200 → 0 &nbsp;·&nbsp; 2200 → 100</span>
               </div>
             </div>
 
@@ -293,18 +292,19 @@ export default function LandingPage() {
                 <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground">Codeforces</span>
                 <span className="ml-auto text-xs text-muted-foreground bg-muted/60 rounded-full px-2 py-0.5">weight 40%</span>
               </div>
-              <div className="bg-[#1f8dd6]/5 border border-[#1f8dd6]/20 rounded-xl px-5 py-4 flex items-center gap-3">
-                <span className="font-semibold text-[#1f8dd6] text-sm font-mono italic">cf</span>
-                <span className="text-muted-foreground text-lg">=</span>
-                <span className="text-foreground font-mono text-sm">clamp</span>
-                <span className="text-muted-foreground text-base">(</span>
-                <span className="text-foreground font-mono text-sm">0,</span>
-                <div className="flex flex-col items-center mx-1">
-                  <span className="text-foreground font-mono text-sm border-b border-foreground/50 pb-0.5 px-1">rating</span>
-                  <span className="text-foreground font-mono text-sm pt-0.5 px-1">20</span>
+              <div className="overflow-x-auto">
+                <div className="bg-[#1f8dd6]/5 border border-[#1f8dd6]/20 rounded-xl px-4 py-4 flex items-center gap-2 min-w-max sm:min-w-0">
+                  <span className="font-semibold text-[#1f8dd6] text-sm font-mono italic">cf</span>
+                  <span className="text-muted-foreground text-lg">=</span>
+                  <span className="text-foreground font-mono text-sm">clamp(0,</span>
+                  <div className="flex flex-col items-center mx-1 gap-0.5">
+                    <span className="text-foreground font-mono text-sm px-2 pb-0.5">rating</span>
+                    <span className="block w-full h-[1.5px] bg-foreground/70 rounded-full" />
+                    <span className="text-foreground font-mono text-sm px-2 pt-0.5">20</span>
+                  </div>
+                  <span className="text-foreground font-mono text-sm">, 100)</span>
+                  <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap hidden sm:block pl-3">0 → 0 · 2000 → 100</span>
                 </div>
-                <span className="text-muted-foreground text-base">, 100)</span>
-                <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap hidden sm:block">0 → 0 &nbsp;·&nbsp; 2000 → 100</span>
               </div>
             </div>
 
@@ -315,18 +315,19 @@ export default function LandingPage() {
                 <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground">CodeChef</span>
                 <span className="ml-auto text-xs text-muted-foreground bg-muted/60 rounded-full px-2 py-0.5">weight 30%</span>
               </div>
-              <div className="bg-orange-500/5 border border-orange-500/20 rounded-xl px-5 py-4 flex items-center gap-3">
-                <span className="font-semibold text-orange-400 text-sm font-mono italic">cc</span>
-                <span className="text-muted-foreground text-lg">=</span>
-                <span className="text-foreground font-mono text-sm">clamp</span>
-                <span className="text-muted-foreground text-base">(</span>
-                <span className="text-foreground font-mono text-sm">0,</span>
-                <div className="flex flex-col items-center mx-1">
-                  <span className="text-foreground font-mono text-sm border-b border-foreground/50 pb-0.5 px-1">rating − 1000</span>
-                  <span className="text-foreground font-mono text-sm pt-0.5 px-1">15</span>
+              <div className="overflow-x-auto">
+                <div className="bg-orange-500/5 border border-orange-500/20 rounded-xl px-4 py-4 flex items-center gap-2 min-w-max sm:min-w-0">
+                  <span className="font-semibold text-orange-400 text-sm font-mono italic">cc</span>
+                  <span className="text-muted-foreground text-lg">=</span>
+                  <span className="text-foreground font-mono text-sm">clamp(0,</span>
+                  <div className="flex flex-col items-center mx-1 gap-0.5">
+                    <span className="text-foreground font-mono text-sm px-2 pb-0.5">rating − 1000</span>
+                    <span className="block w-full h-[1.5px] bg-foreground/70 rounded-full" />
+                    <span className="text-foreground font-mono text-sm px-2 pt-0.5">15</span>
+                  </div>
+                  <span className="text-foreground font-mono text-sm">, 100)</span>
+                  <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap hidden sm:block pl-3">1000 → 0 · 2500 → 100</span>
                 </div>
-                <span className="text-muted-foreground text-base">, 100)</span>
-                <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap hidden sm:block">1000 → 0 &nbsp;·&nbsp; 2500 → 100</span>
               </div>
             </div>
 
@@ -337,39 +338,31 @@ export default function LandingPage() {
                 <span className="h-2.5 w-2.5 rounded-full bg-primary" />
                 <span className="text-xs font-semibold tracking-widest uppercase text-muted-foreground">Overall CP Score</span>
               </div>
-              <div className="bg-primary/8 border border-primary/25 rounded-xl px-5 py-5">
-                <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-2 font-mono text-sm">
+              <div className="bg-primary/8 border border-primary/25 rounded-xl px-5 py-6">
+                {/* Fraction layout */}
+                <div className="flex items-center justify-center gap-3 font-mono">
                   <span className="text-primary font-bold text-base italic">CP</span>
                   <span className="text-muted-foreground text-lg">=</span>
-
-                  {/* LC term */}
-                  <div className="flex flex-col items-center mx-0.5">
-                    <span className="text-[#ffa116] font-mono text-xs border-b border-foreground/40 pb-0.5 px-1">0.30 × lc</span>
-                  </div>
-                  <span className="text-muted-foreground">+</span>
-
-                  {/* CF term */}
-                  <div className="flex flex-col items-center mx-0.5">
-                    <span className="text-[#1f8dd6] font-mono text-xs border-b border-foreground/40 pb-0.5 px-1">0.40 × cf</span>
-                  </div>
-                  <span className="text-muted-foreground">+</span>
-
-                  {/* CC term */}
-                  <div className="flex flex-col items-center mx-0.5">
-                    <span className="text-orange-400 font-mono text-xs border-b border-foreground/40 pb-0.5 px-1">0.30 × cc</span>
-                  </div>
-
-                  {/* Denominator */}
-                  <div className="w-full flex justify-center mt-1">
-                    <div className="h-px w-48 bg-foreground/30 relative">
-                      <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-foreground/60 font-mono text-xs whitespace-nowrap">
-                        sum of weights of linked platforms
-                      </span>
+                  {/* Fraction */}
+                  <div className="flex flex-col items-center gap-1">
+                    {/* Numerator */}
+                    <div className="flex items-center flex-wrap justify-center gap-x-1.5 gap-y-1 text-sm pb-1">
+                      <span className="text-[#ffa116] font-mono whitespace-nowrap">0.30 × lc</span>
+                      <span className="text-muted-foreground">+</span>
+                      <span className="text-[#1f8dd6] font-mono whitespace-nowrap">0.40 × cf</span>
+                      <span className="text-muted-foreground">+</span>
+                      <span className="text-orange-400 font-mono whitespace-nowrap">0.30 × cc</span>
+                    </div>
+                    {/* Division line */}
+                    <span className="block w-full h-[2px] bg-foreground/60 rounded-full" />
+                    {/* Denominator */}
+                    <div className="text-foreground/70 font-mono text-xs pt-1">
+                      sum of weights of linked platforms
                     </div>
                   </div>
                 </div>
 
-                <p className="text-center text-xs text-muted-foreground mt-8">
+                <p className="text-center text-xs text-muted-foreground mt-5">
                   Weights redistribute automatically if a platform is not linked &nbsp;·&nbsp; Tiebreaker: total problems solved
                 </p>
               </div>
@@ -385,7 +378,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, scale: 0.95 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
-            className="rounded-3xl bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 border border-primary/20 p-12 glass"
+            className="rounded-3xl bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 border border-primary/20 p-6 sm:p-12 glass"
           >
             <h2 className="text-3xl font-bold mb-4">
               Ready to climb the ranks?

@@ -14,6 +14,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Keep firebase-admin (Node.js SDK) out of the webpack bundle —
+  // it must run only on the Node.js server runtime, never in the Edge.
+  serverExternalPackages: ["firebase-admin"],
   experimental: {
     serverActions: {
       allowedOrigins: ["*"],

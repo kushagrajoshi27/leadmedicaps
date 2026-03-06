@@ -122,21 +122,21 @@ export default function ContestsClient({
   return (
     <div className="space-y-6">
       {/* Controls */}
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+      <div className="flex flex-col gap-3">
         <Tabs
           value={platform}
           onValueChange={setPlatform}
-          className="w-full sm:w-auto"
+          className="w-full"
         >
-          <TabsList className="grid grid-cols-4 w-full sm:w-auto">
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="leetcode">LeetCode</TabsTrigger>
-            <TabsTrigger value="codeforces">Codeforces</TabsTrigger>
-            <TabsTrigger value="codechef">CodeChef</TabsTrigger>
+          <TabsList className="w-full grid grid-cols-4">
+            <TabsTrigger value="all" className="text-xs sm:text-sm">All</TabsTrigger>
+            <TabsTrigger value="leetcode" className="text-xs sm:text-sm">LC</TabsTrigger>
+            <TabsTrigger value="codeforces" className="text-xs sm:text-sm">CF</TabsTrigger>
+            <TabsTrigger value="codechef" className="text-xs sm:text-sm">CC</TabsTrigger>
           </TabsList>
         </Tabs>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 justify-end">
           <Button
             variant="outline"
             size="sm"

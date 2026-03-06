@@ -1,24 +1,23 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUserWithProfile } from "@/lib/firebase/server";
 import { DashboardClient } from "@/components/dashboard/dashboard-client";
 
 export default async function DashboardPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { user, profile } = await getCurrentUserWithProfile();
 
   if (!user) redirect("/login");
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
 
   if (!profile?.setup_complete) {
     redirect("/setup");
   }
 
-  return <DashboardClient profile={profile} />;
+  // Normalize nullable fields to match DashboardClient's expected types
+  const profileForClient = {
+    ...profile!,
+    name: profile!.name ?? "",
+    username: profile!.username ?? "",
+    batch: profile!.batch ?? 0,
+  };
+
+  return <DashboardClient profile={profileForClient} />;
 }

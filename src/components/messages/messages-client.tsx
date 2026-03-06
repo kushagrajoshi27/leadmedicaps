@@ -21,9 +21,16 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { createClient as createBrowserClient } from "@/lib/supabase/client";
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  onSnapshot,
+  type Unsubscribe,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase/client";
 import { cn } from "@/lib/utils";
-import type { RealtimeChannel } from "@supabase/supabase-js";
 
 interface MiniProfile {
   id: string;
@@ -69,7 +76,6 @@ export default function MessagesClient({
   currentUserId,
   openWithProfile,
 }: MessagesClientProps) {
-  const supabase = createBrowserClient();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activePartner, setActivePartner] = useState<MiniProfile | null>(
     openWithProfile
@@ -81,7 +87,7 @@ export default function MessagesClient({
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const channelRef = useRef<RealtimeChannel | null>(null);
+  const unsubscribeRef = useRef<Unsubscribe | null>(null);
 
   // Scroll to bottom on new messages
   const scrollToBottom = useCallback(() => {
@@ -143,38 +149,41 @@ export default function MessagesClient({
     }
   }, []);
 
-  // Subscribe to real-time messages
+  // Subscribe to real-time incoming messages via Firestore onSnapshot
   const subscribeToMessages = useCallback(
     (partnerId: string) => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
+      // Unsubscribe from any existing listener
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
       }
 
-      const channel = supabase
-        .channel(`messages-${currentUserId}-${partnerId}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "messages",
-            filter: `receiver_id=eq.${currentUserId}`,
-          },
-          (payload) => {
-            const newMsg = payload.new as Message;
-            if (
-              newMsg.sender_id === partnerId ||
-              newMsg.receiver_id === partnerId
-            ) {
-              setMessages((prev) => [...prev, newMsg]);
-            }
-          }
-        )
-        .subscribe();
+      // Listen for messages sent BY the partner TO the current user
+      const q = query(
+        collection(db, "messages"),
+        where("sender_id", "==", partnerId),
+        where("receiver_id", "==", currentUserId),
+        orderBy("created_at", "asc")
+      );
 
-      channelRef.current = channel;
+      const unsub = onSnapshot(q, (snap) => {
+        snap.docChanges().forEach((change) => {
+          if (change.type === "added") {
+            const newMsg = {
+              id: change.doc.id,
+              ...(change.doc.data() as Omit<Message, "id">),
+            } as Message;
+            setMessages((prev) => {
+              if (prev.find((m) => m.id === newMsg.id)) return prev;
+              return [...prev, newMsg];
+            });
+          }
+        });
+      });
+
+      unsubscribeRef.current = unsub;
     },
-    [currentUserId, supabase]
+    [currentUserId]
   );
 
   useEffect(() => {
@@ -183,12 +192,12 @@ export default function MessagesClient({
       subscribeToMessages(activePartner.id);
     }
     return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
       }
     };
-  }, [activePartner, loadMessages, subscribeToMessages, supabase]);
+  }, [activePartner, loadMessages, subscribeToMessages]);
 
   const sendMessage = useCallback(async () => {
     if (!input.trim() || !activePartner || sending) return;
@@ -248,7 +257,7 @@ export default function MessagesClient({
   const showList = !isMobile || !showChat;
 
   return (
-    <div className="flex border border-border/50 rounded-xl overflow-hidden bg-card/30 backdrop-blur-sm h-[calc(100vh-220px)] min-h-[500px]">
+    <div className="flex border border-border/50 rounded-xl overflow-hidden bg-card/30 backdrop-blur-sm h-[calc(100dvh-180px)] sm:h-[calc(100vh-220px)] min-h-[480px]">
       {/* Conversation list */}
       <AnimatePresence>
         {(!showChat || !isMobile) && (

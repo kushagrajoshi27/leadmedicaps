@@ -1,5 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { createClient as createServerClient } from "@/lib/supabase/server";
+import { getCurrentUser, getProfileByUsername, getProfileById } from "@/lib/firebase/server";
 import ProfileClient from "@/components/profile/profile-client";
 
 interface ProfilePageProps {
@@ -15,38 +15,24 @@ export async function generateMetadata({ params }: ProfilePageProps) {
 
 export default async function ProfilePage({ params }: ProfilePageProps) {
   const { username } = await params;
-  const supabase = await createServerClient();
 
-  // Get current user
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
 
   // Fetch the profile by username
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("username", username)
-    .single();
+  const profile = await getProfileByUsername(username);
+  if (!profile) notFound();
 
-  if (error || !profile) notFound();
+  // Fetch current user's profile for username
+  const currentProfile = await getProfileById(user.uid);
 
-  // Fetch current user's profile to check if viewing own profile
-  const { data: currentProfile } = await supabase
-    .from("profiles")
-    .select("id, username")
-    .eq("id", user.id)
-    .single();
-
-  const isOwnProfile = user.id === profile.id;
+  const isOwnProfile = user.uid === profile.id;
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <ProfileClient
         profile={profile}
-        currentUserId={user.id}
+        currentUserId={user.uid}
         currentUsername={currentProfile?.username ?? ""}
         isOwnProfile={isOwnProfile}
       />

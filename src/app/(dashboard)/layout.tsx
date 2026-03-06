@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUserWithProfile } from "@/lib/firebase/server";
 import { Navbar } from "@/components/layout/navbar";
 import type { UserProfile } from "@/types";
 
@@ -8,23 +8,10 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { user, profile } = await getCurrentUserWithProfile();
 
   if (!user) {
     redirect("/login");
-  }
-
-  // Fetch user profile
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-
-  // If profile not complete, redirect to setup
-  if (profile && !profile.setup_complete) {
-    // Allow access to setup page
   }
 
   return (

@@ -4,6 +4,7 @@ export interface UserProfile {
   name: string | null;
   username: string | null;
   batch: number | null;
+  branch?: string | null;
   avatar_url?: string | null;
   linkedin_url?: string | null;
   leetcode_username?: string | null;

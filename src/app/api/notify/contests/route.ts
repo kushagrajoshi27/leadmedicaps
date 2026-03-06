@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/firebase/server";
+import { adminDb } from "@/lib/firebase/admin";
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
+  const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -20,19 +19,19 @@ export async function POST(request: NextRequest) {
   }
 
   // Fetch all user emails for notification (only medicaps.ac.in)
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("email, name")
-    .like("email", "%@medicaps.ac.in");
+  const profilesSnap = await adminDb
+    .collection("profiles")
+    .where("email", ">=", "@medicaps.ac.in")
+    .get();
 
-  if (!profiles?.length) {
+  // Filter in code since Firestore doesn't support LIKE queries
+  const profiles = profilesSnap.docs
+    .map((d) => d.data() as { email?: string; name?: string })
+    .filter((p) => p.email?.endsWith("@medicaps.ac.in"));
+
+  if (!profiles.length) {
     return NextResponse.json({ message: "No users to notify" });
   }
-
-  // Use Supabase's built-in email (using admin auth)
-  // We'll use a simple approach with the Auth OTP mechanism for emails
-  // In production, integrate with Resend (free tier: 100 emails/day)
-  // For now we use Supabase Edge Functions or external SMTP
 
   const upcoming = contestsData.contests.slice(0, 5);
 

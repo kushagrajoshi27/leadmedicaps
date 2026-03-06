@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient as createServerClient } from "@/lib/supabase/server";
+import { getCurrentUser, getProfileById } from "@/lib/firebase/server";
 import MessagesClient from "@/components/messages/messages-client";
 
 export default async function MessagesPage({
@@ -7,31 +7,34 @@ export default async function MessagesPage({
 }: {
   searchParams: Promise<{ user?: string }>;
 }) {
-  const supabase = await createServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const user = await getCurrentUser();
   if (!user) redirect("/login");
 
   const { user: targetUserId } = await searchParams;
 
-  // Fetch current user's profile
-  const { data: currentProfile } = await supabase
-    .from("profiles")
-    .select("id, name, username, avatar_url")
-    .eq("id", user.id)
-    .single();
+  // Fetch current user's profile (narrow to MiniProfile shape)
+  const fullProfile = await getProfileById(user.uid);
+  const currentProfile = fullProfile
+    ? {
+        id: fullProfile.id,
+        name: fullProfile.name ?? null,
+        username: fullProfile.username ?? null,
+        avatar_url: fullProfile.avatar_url ?? null,
+      }
+    : null;
 
   // If ?user=ID param, preload that user's profile for opening conversation
   let openWithProfile = null;
-  if (targetUserId && targetUserId !== user.id) {
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, name, username, avatar_url")
-      .eq("id", targetUserId)
-      .single();
-    openWithProfile = data;
+  if (targetUserId && targetUserId !== user.uid) {
+    const op = await getProfileById(targetUserId);
+    openWithProfile = op
+      ? {
+          id: op.id,
+          name: op.name ?? null,
+          username: op.username ?? null,
+          avatar_url: op.avatar_url ?? null,
+        }
+      : null;
   }
 
   return (
@@ -43,7 +46,7 @@ export default async function MessagesPage({
         </p>
       </div>
       <MessagesClient
-        currentUserId={user.id}
+        currentUserId={user.uid}
         currentProfile={currentProfile}
         openWithProfile={openWithProfile}
       />
