@@ -31,6 +31,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { cn } from "@/lib/utils";
+import { useMultiPresence, useUserOnline } from "@/hooks/usePresence";
 
 interface MiniProfile {
   id: string;
@@ -88,6 +89,11 @@ export default function MessagesClient({
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const unsubscribeRef = useRef<Unsubscribe | null>(null);
+
+  // Presence: subscribe to all conversation partners + active partner
+  const partnerIds = conversations.map((c) => c.partnerId);
+  const onlineMap = useMultiPresence(partnerIds);
+  const activePartnerOnline = useUserOnline(activePartner?.id);
 
   // Scroll to bottom on new messages
   const scrollToBottom = useCallback(() => {
@@ -322,17 +328,28 @@ export default function MessagesClient({
                         activePartner?.id === conv.partnerId && "bg-primary/10"
                       )}
                     >
-                      <Avatar className="h-10 w-10 shrink-0">
-                        {conv.partner?.avatar_url ? (
-                          <AvatarImage
-                            src={conv.partner.avatar_url}
-                            alt={conv.partner.name ?? ""}
-                          />
-                        ) : null}
-                        <AvatarFallback className="text-xs bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
-                          {getInitials(conv.partner?.name ?? null)}
-                        </AvatarFallback>
-                      </Avatar>
+                      <div className="relative shrink-0">
+                        <Avatar className="h-10 w-10">
+                          {conv.partner?.avatar_url ? (
+                            <AvatarImage
+                              src={conv.partner.avatar_url}
+                              alt={conv.partner.name ?? ""}
+                            />
+                          ) : null}
+                          <AvatarFallback className="text-xs bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
+                            {getInitials(conv.partner?.name ?? null)}
+                          </AvatarFallback>
+                        </Avatar>
+                        {/* Online dot */}
+                        <span
+                          className={cn(
+                            "absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-background",
+                            onlineMap.get(conv.partnerId)
+                              ? "bg-emerald-500"
+                              : "bg-muted-foreground/40"
+                          )}
+                        />
+                      </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-baseline justify-between gap-1">
                           <span className="font-medium text-sm truncate">
@@ -382,26 +399,35 @@ export default function MessagesClient({
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Avatar className="h-8 w-8">
-              {activePartner.avatar_url ? (
-                <AvatarImage
-                  src={activePartner.avatar_url}
-                  alt={activePartner.name ?? ""}
-                />
-              ) : null}
-              <AvatarFallback className="text-xs bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
-                {getInitials(activePartner.name)}
-              </AvatarFallback>
-            </Avatar>
+            <div className="relative">
+              <Avatar className="h-8 w-8">
+                {activePartner.avatar_url ? (
+                  <AvatarImage
+                    src={activePartner.avatar_url}
+                    alt={activePartner.name ?? ""}
+                  />
+                ) : null}
+                <AvatarFallback className="text-xs bg-gradient-to-br from-indigo-500 to-purple-600 text-white">
+                  {getInitials(activePartner.name)}
+                </AvatarFallback>
+              </Avatar>
+              <span
+                className={cn(
+                  "absolute bottom-0 right-0 h-2 w-2 rounded-full border-2 border-background",
+                  activePartnerOnline ? "bg-emerald-500" : "bg-muted-foreground/40"
+                )}
+              />
+            </div>
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-sm truncate">
                 {activePartner.name ?? activePartner.username}
               </p>
-              {activePartner.username && (
-                <p className="text-xs text-muted-foreground">
-                  @{activePartner.username}
-                </p>
-              )}
+              <p className={cn(
+                "text-xs",
+                activePartnerOnline ? "text-emerald-500" : "text-muted-foreground"
+              )}>
+                {activePartnerOnline ? "Online" : activePartner.username ? `@${activePartner.username}` : "Offline"}
+              </p>
             </div>
             <Button asChild variant="ghost" size="icon" className="h-8 w-8">
               <Link href={`/profile/${activePartner.username}`}>

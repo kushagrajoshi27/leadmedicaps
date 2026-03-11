@@ -14,6 +14,8 @@ import {
   X
 } from "lucide-react";
 import { useState } from "react";
+import { useUnreadCount } from "@/hooks/useUnreadCount";
+import { useSetPresence } from "@/hooks/usePresence";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggle } from "./theme-toggle";
@@ -46,6 +48,8 @@ export function Navbar({ user }: NavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const unreadCount = useUnreadCount(user?.id);
+  useSetPresence(user?.id);
 
   const handleSignOut = async () => {
     await signOut(auth);
@@ -80,13 +84,18 @@ export function Navbar({ user }: NavbarProps) {
                   variant="ghost"
                   size="sm"
                   className={cn(
-                    "gap-2 font-medium",
+                    "gap-2 font-medium relative",
                     pathname === href &&
                       "bg-primary/10 text-primary hover:bg-primary/15"
                   )}
                 >
                   <Icon className="h-4 w-4" />
                   {label}
+                  {label === "Messages" && unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white leading-none">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  )}
                 </Button>
               </Link>
             ))}
@@ -191,12 +200,17 @@ export function Navbar({ user }: NavbarProps) {
                   <Button
                     variant="ghost"
                     className={cn(
-                      "w-full justify-start gap-2",
+                      "w-full justify-start gap-2 relative",
                       pathname === href && "bg-primary/10 text-primary"
                     )}
                   >
                     <Icon className="h-4 w-4" />
                     {label}
+                    {label === "Messages" && unreadCount > 0 && (
+                      <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white leading-none">
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    )}
                   </Button>
                 </Link>
               ))}
